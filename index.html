@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>中秋快乐呀</title>
+<style>
+:root{
+  --gold:#ffe9a8; --goldlight:#fffef0;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;background:#02030a;overflow:hidden;font-family:"PingFang SC","Microsoft YaHei",sans-serif;}
+body{position:relative;touch-action:none;}
+#galaxy{position:fixed;inset:-20% -20%;background:
+  linear-gradient(115deg,transparent 40%, rgba(180,200,255,.10) 48%, rgba(255,255,255,.16) 50%, rgba(180,200,255,.10) 52%, transparent 60%);
+  filter:blur(6px);pointer-events:none;}
+#stars{position:fixed;inset:0;pointer-events:none;}
+.star{position:absolute;background:#fff;border-radius:50%;animation:tw ease-in-out infinite;}
+@keyframes tw{0%,100%{opacity:.15;transform:scale(.7);}50%{opacity:1;transform:scale(1.2);}}
+
+#moon{
+  position:absolute;width:88px;height:88px;border-radius:50%;
+  background:radial-gradient(circle at 35% 32%, var(--goldlight), var(--gold) 60%, #f2cf78 100%);
+  box-shadow:0 0 40px 12px rgba(255,244,200,.5), 0 0 90px 30px rgba(255,230,150,.22);
+  cursor:grab;touch-action:none;z-index:5;transition:box-shadow .6s;
+}
+#moon.locked{cursor:default;transition:left .5s ease,top .5s ease,box-shadow .8s;}
+#moon.glow{animation:pulseglow 2.6s ease-in-out infinite;}
+@keyframes pulseglow{
+  0%,100%{box-shadow:0 0 40px 12px rgba(255,244,200,.5),0 0 90px 30px rgba(255,230,150,.22);}
+  50%{box-shadow:0 0 60px 20px rgba(255,244,200,.75),0 0 130px 46px rgba(255,230,150,.4);}
+}
+
+#lettersRow{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+  display:flex;gap:38px;letter-spacing:6px;opacity:0;transition:opacity 2.5s ease;pointer-events:none;z-index:3;}
+#lettersRow.show{opacity:1;}
+#lettersRow span{font-size:56px;color:rgba(255,255,255,.55);text-shadow:0 0 12px rgba(255,255,255,.4);}
+#letterO.near{color:#fff;text-shadow:0 0 26px var(--gold),0 0 50px var(--gold);}
+
+#bigText{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);
+  font-size:44px;color:#fff;text-shadow:0 0 20px var(--gold),0 0 40px rgba(255,233,168,.6);
+  opacity:0;transition:opacity 2s ease;z-index:6;white-space:nowrap;pointer-events:none;}
+#bigText.show{opacity:1;}
+
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:20;transition:opacity .4s;}
+.modal.hidden{opacity:0;pointer-events:none;}
+.box{background:#12142080;border:1px solid rgba(255,233,168,.35);backdrop-filter:blur(6px);
+  border-radius:16px;padding:28px 26px;max-width:82vw;text-align:center;color:#fdf6e3;}
+.box p{margin:0 0 18px;font-size:17px;line-height:1.6;}
+.box button{background:linear-gradient(135deg,var(--gold),#f2b35c);border:none;border-radius:20px;
+  padding:9px 24px;font-size:15px;color:#3a2a08;font-weight:600;cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="galaxy"></div>
+<div id="stars"></div>
+<div id="lettersRow"><span id="letterY">Y</span><span id="letterO">O</span><span id="letterU">U</span></div>
+<div id="bigText">中秋快乐呀</div>
+<div id="moon"></div>
+
+<div class="modal" id="modal1"><div class="box"><p>哎哟你来啦^_^</p><button id="btn1">对哒</button></div></div>
+<div class="modal hidden" id="modal2"><div class="box"><p>今天我看了，月亮真的特别特别圆，就跟这个一样</p><button id="btn2">可以哒</button></div></div>
+
+<script>
+// 星空
+const starsBox=document.getElementById('stars');
+function makeStars(count,minS,maxS,region){
+  for(let i=0;i<count;i++){
+    const s=document.createElement('div');
+    s.className='star';
+    const size=minS+Math.random()*(maxS-minS);
+    s.style.width=s.style.height=size+'px';
+    let left,top;
+    if(region){left=region.x+(Math.random()-0.5)*region.r; top=region.y+(Math.random()-0.5)*region.r;}
+    else{left=Math.random()*100; top=Math.random()*100;}
+    s.style.left=left+'vw'; s.style.top=top+'vh';
+    s.style.animationDuration=(1.6+Math.random()*3)+'s';
+    s.style.animationDelay=(Math.random()*4)+'s';
+    starsBox.appendChild(s);
+  }
+}
+makeStars(140,1,2.4);
+[{x:20,y:25,r:22},{x:78,y:18,r:18},{x:60,y:75,r:26}].forEach(c=>makeStars(28,1.5,3,c));
+
+// 月亮物理
+const moon=document.getElementById('moon');
+const M=88;
+let x=innerWidth*0.5-M/2, y=innerHeight*0.4-M/2;
+let vx=1.6, vy=1.1;
+let dragging=false, frozen=false, locked=false, onboarded=false;
+moon.style.left=x+'px'; moon.style.top=y+'px';
+
+function step(){
+  if(!dragging && !frozen && !locked){
+    x+=vx; y+=vy;
+    if(x<=0){x=0;vx=-vx;} if(x>=innerWidth-M){x=innerWidth-M;vx=-vx;}
+    if(y<=0){y=0;vy=-vy;} if(y>=innerHeight-M){y=innerHeight-M;vy=-vy;}
+    moon.style.left=x+'px'; moon.style.top=y+'px';
+  }
+  requestAnimationFrame(step);
+}
+requestAnimationFrame(step);
+
+let offX=0, offY=0;
+moon.addEventListener('pointerdown',e=>{
+  if(locked) return;
+  dragging=true; moon.setPointerCapture(e.pointerId);
+  const r=moon.getBoundingClientRect();
+  offX=e.clientX-r.left; offY=e.clientY-r.top;
+  moon.style.cursor='grabbing';
+});
+moon.addEventListener('pointermove',e=>{
+  if(!dragging) return;
+  x=Math.min(Math.max(0,e.clientX-offX),innerWidth-M);
+  y=Math.min(Math.max(0,e.clientY-offY),innerHeight-M);
+  moon.style.left=x+'px'; moon.style.top=y+'px';
+  if(onboarded) checkNear();
+});
+moon.addEventListener('pointerup',()=>{
+  dragging=false; moon.style.cursor='grab';
+  if(onboarded) trySnap();
+});
+
+function letterOCenter(){
+  const r=document.getElementById('letterO').getBoundingClientRect();
+  return {cx:r.left+r.width/2, cy:r.top+r.height/2};
+}
+function checkNear(){
+  const {cx,cy}=letterOCenter();
+  const mc={x:x+M/2,y:y+M/2};
+  const d=Math.hypot(mc.x-cx,mc.y-cy);
+  document.getElementById('letterO').classList.toggle('near', d<70);
+}
+function trySnap(){
+  const {cx,cy}=letterOCenter();
+  const mc={x:x+M/2,y:y+M/2};
+  const d=Math.hypot(mc.x-cx,mc.y-cy);
+  if(d<70){
+    x=cx-M/2; y=cy-M/2;
+    moon.style.left=x+'px'; moon.style.top=y+'px';
+    locked=true;
+    moon.classList.add('locked','glow');
+    document.getElementById('letterO').classList.add('near');
+    setTimeout(()=>document.getElementById('bigText').classList.add('show'),700);
+  }
+}
+
+// 弹窗流程
+document.getElementById('btn1').addEventListener('click',()=>{
+  document.getElementById('modal1').classList.add('hidden');
+  setTimeout(()=>{
+    frozen=true;
+    document.getElementById('modal2').classList.remove('hidden');
+  },20000);
+});
+document.getElementById('btn2').addEventListener('click',()=>{
+  document.getElementById('modal2').classList.add('hidden');
+  onboarded=true;
+  document.getElementById('lettersRow').classList.add('show');
+});
+</script>
+</body>
+</html>
